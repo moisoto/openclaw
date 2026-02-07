@@ -181,23 +181,24 @@ upsert_env "$ENV_FILE" \
   OPENCLAW_HOME_VOLUME \
   OPENCLAW_DOCKER_APT_PACKAGES
 
-echo "==> Building Docker image: $IMAGE_NAME"
-docker build \
-  --build-arg "OPENCLAW_DOCKER_APT_PACKAGES=${OPENCLAW_DOCKER_APT_PACKAGES}" \
-  -t "$IMAGE_NAME" \
-  -f "$ROOT_DIR/Dockerfile" \
-  "$ROOT_DIR"
+IMAGE_EXISTS=$(docker images -q $IMAGE_NAME)
+if [[ -z $IMAGE_EXISTS ]]; then
+  echo "==> Building Docker image: $IMAGE_NAME"
+  docker build \
+    --build-arg "OPENCLAW_DOCKER_APT_PACKAGES=${OPENCLAW_DOCKER_APT_PACKAGES}" \
+    -t "$IMAGE_NAME" \
+    -f "$ROOT_DIR/Dockerfile" \
+    "$ROOT_DIR"
+fi
 
-echo ""
-echo "==> Onboarding (interactive)"
-echo "When prompted:"
-echo "  - Gateway bind: lan"
-echo "  - Gateway auth: token"
-echo "  - Gateway token: $OPENCLAW_GATEWAY_TOKEN"
-echo "  - Tailscale exposure: Off"
-echo "  - Install Gateway daemon: No"
-echo ""
-docker compose "${COMPOSE_ARGS[@]}" run --rm openclaw-cli onboard --no-install-daemon
+echo
+echo "Gateway token: $OPENCLAW_GATEWAY_TOKEN"
+echo
+#docker compose "${COMPOSE_ARGS[@]}" run --rm openclaw-cli gateway --port 18789
+
+cfg_file="$HOME/.openclaw/openclaw.json"
+tmp_file="$HOME/.openclaw/openclaw-json.tmp"
+jq --arg t "$OPENCLAW_GATEWAY_TOKEN" '.gateway.auth.token = $t' $cfg_file > $tmp_file && mv $tmp_file $cfg_file
 
 echo ""
 echo "==> Provider setup (optional)"
